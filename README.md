@@ -96,7 +96,7 @@ This opens to a world of optimizations in performance-sensitive programs, where 
 
 ## What about ParallelReduce?
 
-With reduce, things can get more complicated. The reduce operation can guarantee a deterministic result only when operating on operations closed under the associative property, i.e:
+With reduce, things can get more complicated. The reduce operation can guarantee a deterministic result only when operating under the associative property, i.e:
 
 ```js
 const associativeBinaryOperationResult = [1,2,3,4].reduce((x, y) => x + y); // Will always output 10
