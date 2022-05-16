@@ -89,7 +89,7 @@ const parallelPredicateResult = input.parallelFilter(mapPredicate);
 // parallelPredicateResult is now:
 // [Promise<pending>, Promise<pending>, Promise<pending>, Promise<pending>, Promise<pending>]
 // But once resolved, we can observe the following:
-// [Promise<1>, Promise<3>, Promise<2>, Promise<4>]
+// [Promise<1>, Promise<3>, Promise<4>, Promise<2>]
 ```
 
 This opens to a world of optimizations in performance-sensitive programs, where the order of elements in an array should be determined by the resolution time of an asynchronous (but even synchronous) function.
