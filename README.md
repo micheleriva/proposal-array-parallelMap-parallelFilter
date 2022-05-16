@@ -1,60 +1,96 @@
-# template-for-proposals
+# ParallelMap, ParallelFilter
 
-A repository template for ECMAScript proposals.
+**ParallelMap** and **ParallelFilter** are a proposal for extending the JavaScript `Array` class by providing an easy but powerful way to parallelize computation while performing `map` and `filter` operations over arrays.
 
-## Before creating a proposal
+# Introduction
 
-Please ensure the following:
-  1. You have read the [process document](https://tc39.github.io/process-document/)
-  1. You have reviewed the [existing proposals](https://github.com/tc39/proposals/)
-  1. You are aware that your proposal requires being a member of TC39, or locating a TC39 delegate to "champion" your proposal
+Due to the nature of the JavaScript computational model, callbacks in higher-order functions (such as `map`, `reduce`, or `filter`), gets executed asynchronously. We can observe this behaviour by looking at the following code example (in Node.js):
 
-## Create your proposal repo
+```js
+import { setTimeout } from 'node:timers/promises';
 
-Follow these steps:
-  1.  Click the green ["use this template"](https://github.com/tc39/template-for-proposals/generate) button in the repo header. (Note: Do not fork this repo in GitHub's web interface, as that will later prevent transfer into the TC39 organization)
-  1.  Go to your repo settings “Options” page, under “GitHub Pages”, and set the source to the **main branch** under the root (and click Save, if it does not autosave this setting)
-      1. check "Enforce HTTPS"
-      1. On "Options", under "Features", Ensure "Issues" is checked, and disable "Wiki", and "Projects" (unless you intend to use Projects)
-      1. Under "Merge button", check "automatically delete head branches"
-<!--
-  1.  Avoid merge conflicts with build process output files by running:
-      ```sh
-      git config --local --add merge.output.driver true
-      git config --local --add merge.output.driver true
-      ```
-  1.  Add a post-rewrite git hook to auto-rebuild the output on every commit:
-      ```sh
-      cp hooks/post-rewrite .git/hooks/post-rewrite
-      chmod +x .git/hooks/post-rewrite
-      ```
--->
-  3.  ["How to write a good explainer"][explainer] explains how to make a good first impression.
+const input = [1, 2, 3];
 
-      > Each TC39 proposal should have a `README.md` file which explains the purpose
-      > of the proposal and its shape at a high level.
-      >
-      > ...
-      >
-      > The rest of this page can be used as a template ...
+async function mapPredicate(value) {
 
-      Your explainer can point readers to the `index.html` generated from `spec.emu`
-      via markdown like
+  if (value === 2) {
+    await setTimeout(0);
+  } else {
+    await setTimeout(value * 1000);
+  }
 
-      ```markdown
-      You can browse the [ecmarkup output](https://ACCOUNT.github.io/PROJECT/)
-      or browse the [source](https://github.com/ACCOUNT/PROJECT/blob/HEAD/spec.emu).
-      ```
+  return value * 10;
+}
 
-      where *ACCOUNT* and *PROJECT* are the first two path elements in your project's Github URL.
-      For example, for github.com/**tc39**/**template-for-proposals**, *ACCOUNT* is "tc39"
-      and *PROJECT* is "template-for-proposals".
+const asyncPredicateResult = input.map(mapPredicate);
+
+// asyncPredicateResult is now:
+// [Promise<pending>, Promise<pending>, Promise<pending>]
+// But once resolved, .map keeps the order of the original array:
+// [Promise<10>, Promise<20>, Promise<30>]
+```
+
+As written in the `Array.prototype.map` specification ([https://tc39.es/ecma262/#sec-array.prototype.map](https://tc39.es/ecma262/#sec-array.prototype.map)), the order of elements should remain untouched.
+
+In the example above, in fact, the order of the elements is the same as for the original array, even if the callbacks got executed asynchronously and the second element got resolved way earlier than the others.
+
+While this is a totally fine and expected behaviour, there are times where we might want to perform a similar operation without any guarantee on the order of the elements in the returning array, in parallel. This is where `Array.prototype.parallelMap` can help:
 
 
-## Maintain your proposal repo
+```js
+import { setTimeout } from 'node:timers/promises';
 
-  1. Make your changes to `spec.emu` (ecmarkup uses HTML syntax, but is not HTML, so I strongly suggest not naming it ".html")
-  1. Any commit that makes meaningful changes to the spec, should run `npm run build` and commit the resulting output.
-  1. Whenever you update `ecmarkup`, run `npm run build` and commit any changes that come from that dependency.
+const input = [1, 2, 3];
 
-  [explainer]: https://github.com/tc39/how-we-work/blob/HEAD/explainer.md
+async function asyncMapPredicate(value) {
+  
+  if (value !== 2) {
+    await setTimeout(100);
+  }
+  
+  return value * 10;
+}
+
+const parallelPredicateResult = input.parallelMap(mapPredicate);
+
+// parallelPredicateResult is now:
+// [Promise<pending>, Promise<pending>, Promise<pending>]
+// But once resolved, we can observe the following:
+// [Promise<20>, Promise<10>, Promise<30>]
+```
+
+The same concept applies to the `Array.prototype.filter` with `parallelFilter`, as shown in the code example above:
+
+```js
+import { setTimeout } from 'node:timers/promises';
+
+const input = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+async function filterPredicate(value) {
+  if (value % 2 === 0) {
+    await setTimeout(value * 100);
+  }
+  
+  return value < 5;
+}
+
+const parallelPredicateResult = input.parallelFilter(mapPredicate);
+
+// parallelPredicateResult is now:
+// [Promise<pending>, Promise<pending>, Promise<pending>, Promise<pending>, Promise<pending>]
+// But once resolved, we can observe the following:
+// [Promise<1>, Promise<3>, Promise<2>, Promise<4>]
+```
+
+This opens to a world of optimizations in performance-sensitive programs, where the order of elements in an array should be determined by the resolution time of an asynchronous (but even synchronous) function.
+
+## What about ParallelReduce?
+
+With reduce, things can get more complicated. The reduce operation can guarantee a deterministic result only when operating on operations closed under the associative property, i.e:
+
+```js
+const associativeBinaryOperationResult = [1,2,3,4].reduce((x, y) => x + y); // Will always output 10
+const nonAssociativeBinaryOperationResult = [1,2,3,4].reduce((x, y) => x / y); // Result may change depending on callback execution order
+```
+
+For that reason, the `ParallelReduce` method is out of scope for this proposal.
