@@ -1,8 +1,18 @@
-# ParallelMap, ParallelFilter
+# ECMAScript proposal: ParallelMap, ParallelFilter
+
+## Authors
+
+- Michele Riva
+
+## Champions
+
+- Ujjwal Sharma
+
+## Summary
 
 **ParallelMap** and **ParallelFilter** are a proposal for extending the JavaScript `Array` class by providing an easy but powerful way to parallelize computation while performing `map` and `filter` operations over arrays.
 
-# Introduction
+## Motivation
 
 Due to the nature of the JavaScript computational model, callbacks in higher-order functions (such as `map`, `reduce`, or `filter`), gets executed asynchronously. We can observe this behaviour by looking at the following code example (in Node.js):
 
